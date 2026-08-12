@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bé Học Xem Đồng Hồ</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Segoe UI', Roboto, sans-serif;
+    }
+    body {
+      background-color: #f0f8ff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 24px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+      text-align: center;
+      max-width: 450px;
+      width: 100%;
+    }
+    h1 {
+      color: #2c3e50;
+      margin-top: 0;
+      font-size: 24px;
+    }
+    canvas {
+      background-color: #fff;
+      border-radius: 50%;
+      margin: 20px 0;
+    }
+    .mic-btn {
+      background-color: #ff6b6b;
+      color: white;
+      border: none;
+      padding: 15px 25px;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      outline: none;
+    }
+    .mic-btn:hover {
+      background-color: #ff5252;
+      transform: translateY(-2px);
+    }
+    .mic-btn:active {
+      transform: translateY(1px);
+    }
+    .mic-btn.listening {
+      background-color: #4ecdc4;
+      box-shadow: 0 4px 15px rgba(78, 205, 196, 0.4);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+    .status-text {
+      margin-top: 15px;
+      font-size: 16px;
+      color: #7f8c8d;
+      min-height: 24px;
+    }
+    .result-text {
+      margin-top: 10px;
+      font-size: 20px;
+      font-weight: bold;
+      color: #2ecc71;
+      min-height: 28px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>⏰ Bé Học Xem Đồng Hồ</h1>
+    
+    <canvas id="clock" width="300" height="300"></canvas>
+
+    <div>
+      <button id="listenBtn" class="mic-btn">
+        🎤 Bấm vào và nói giờ nhé
+      </button>
+    </div>
+
+    <div id="status" class="status-text">Bấm nút để bắt đầu nói...</div>
+    <div id="result" class="result-text"></div>
+  </div>
+
+  <script>
+    // --- 1. VẼ ĐỒNG HỒ ANALOG ---
+    const canvas = document.getElementById("clock");
+    const ctx = canvas.getContext("2d");
+    const radius = canvas.height / 2;
+    ctx.translate(radius, radius);
+
+    let currentHour = 10;
+    let currentMinute = 10;
+
+    function drawClock(hour, minute) {
+      ctx.clearRect(-radius, -radius, canvas.width, canvas.height);
+      
+      // Mặt đồng hồ
+      ctx.beginPath();
+      ctx.arc(0, 0, radius - 10, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.strokeStyle = '#3498db';
+      ctx.lineWidth = 8;
+      ctx.stroke();
+
+      // Tâm đồng hồ
+      ctx.beginPath();
+      ctx.arc(0, 0, 8, 0, 2 * Math.PI);
+      ctx.fillStyle = '#2c3e50';
+      ctx.fill();
+
+      // Số chỉ giờ
+      ctx.font = 'bold 18px Segoe UI';
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      ctx.fillStyle = '#2c3e50';
+      for (let num = 1; num <= 12; num++) {
+        let ang = num * Math.PI / 6;
+        ctx.rotate(ang);
+        ctx.translate(0, -radius + 35);
+        ctx.rotate(-ang);
+        ctx.fillText(num.toString(), 0, 0);
+        ctx.rotate(ang);
+        ctx.translate(0, radius - 35);
+        ctx.rotate(-ang);
+      }
+
+      // Kim Giờ
+      let hourAngle = ((hour % 12) + minute / 60) * (Math.PI / 6);
+      drawHand(hourAngle, radius * 0.5, 6, '#2c3e50');
+
+      // Kim Phút
+      let minuteAngle = (minute * Math.PI / 30);
+      drawHand(minuteAngle, radius * 0.7, 4, '#e74c3c');
+    }
+
+    function drawHand(pos, length, width, color) {
+      ctx.beginPath();
+      ctx.lineWidth = width;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = color;
+      ctx.moveTo(0, 0);
+      ctx.rotate(pos);
+      ctx.lineTo(0, -length);
+      ctx.stroke();
+      ctx.rotate(-pos);
+    }
+
+    // Vẽ giờ ban đầu
+    drawClock(currentHour, currentMinute);
+
+    // --- 2. XỬ LÝ CHUYỂN BẰNG TỪ NGỮ THÀNH SỐ ---
+    const textToNumMap = {
+      "không": 0, "mốt": 1, "một": 1, "hai": 2, "ba": 3, "bốn": 4, "tư": 4, 
+      "năm": 5, "lăm": 5, "sáu": 6, "bảy": 7, "tám": 8, "chín": 9, "mười": 10,
+      "chục": 10, "rưỡi": 30, "kém": -1
+    };
+
+    function wordsToNumber(str) {
+      if (!str) return null;
+      str = str.trim();
+      if (!isNaN(str)) return parseInt(str, 10);
+
+      let words = str.split(/\s+/);
+      let total = 0;
+      let temp = 0;
+
+      for (let w of words) {
+        let val = textToNumMap[w];
+        if (val !== undefined) {
+          if (val === 10) {
+            temp = temp === 0 ? 10 : temp * 10;
+          } else {
+            temp += val;
+          }
+        }
+      }
+      total += temp;
+      return total;
+    }
+
+    function parseTimeSpeech(text) {
+      text = text.toLowerCase();
+      let hour = null;
+      let minute = 0;
+
+      // Xử lý trường hợp có "rưỡi"
+      if (text.includes("rưỡi")) {
+        minute = 30;
+      }
+
+      // Tìm phần "giờ"
+      const hourMatch = text.match(/(.*?)\s*giờ/);
+      if (hourMatch) {
+        let hourStr = hourMatch[1].trim();
+        // Lấy từ cuối cùng hoặc số trước chữ giờ
+        let hourWords = hourStr.split(" ").slice(-2).join(" ");
+        hour = wordsToNumber(hourWords);
+      }
+
+      // Tìm phần "phút" (nếu không có "rưỡi")
+      if (!text.includes("rưỡi")) {
+        const minuteMatch = text.match(/giờ\s*(.*?)(?:\s*phút|$)/);
+        if (minuteMatch && minuteMatch[1]) {
+          let minStr = minuteMatch[1].trim();
+          if (minStr) {
+            minute = wordsToNumber(minStr);
+          }
+        }
+      }
+
+      if (hour !== null && !isNaN(hour) && minute !== null && !isNaN(minute)) {
+        return { hour, minute };
+      }
+      return null;
+    }
+
+    // --- 3. NHẬN DẠNG GIỌNG NÓI (SPEECH RECOGNITION) ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      document.getElementById('status').innerText = "Trình duyệt không hỗ trợ nhận dạng giọng nói. Hãy dùng Google Chrome!";
+      document.getElementById('listenBtn').disabled = true;
+    } else {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'vi-VN';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      const listenBtn = document.getElementById('listenBtn');
+      const status = document.getElementById('status');
+      const result = document.getElementById('result');
+
+      listenBtn.addEventListener('click', () => {
+        try {
+          recognition.start();
+        } catch (e) {
+          recognition.stop();
+        }
+      });
+
+      recognition.onstart = () => {
+        listenBtn.classList.add('listening');
+        listenBtn.innerHTML = "🎙️ Đang nghe bé nói...";
+        status.innerText = "Bé hãy nói rõ câu giờ nhé (VD: Hai giờ mười tám phút)";
+        result.innerText = "";
+      };
+
+      recognition.onend = () => {
+        listenBtn.classList.remove('listening');
+        listenBtn.innerHTML = "🎤 Bấm vào và nói giờ nhé";
+      };
+
+      recognition.onresult = (event) => {
+        const speechResult = event.results[0][0].transcript;
+        status.innerText = `Bé vừa nói: "${speechResult}"`;
+
+        const parsedTime = parseTimeSpeech(speechResult);
+
+        if (parsedTime) {
+          currentHour = parsedTime.hour;
+          currentMinute = parsedTime.minute;
+          
+          drawClock(currentHour, currentMinute);
+          result.innerText = `✨ Đồng hồ chỉ: ${currentHour} giờ ${currentMinute} phút`;
+        } else {
+          result.innerText = "⚠️ Chưa nghe rõ giờ. Bé thử nói lại nhé!";
+        }
+      };
+
+      recognition.onerror = (event) => {
+        status.innerText = "Chưa nhận diện được. Bé bấm nút và nói lại nhé!";
+      };
+    }
+  </script>
+
+</body>
+</html>
